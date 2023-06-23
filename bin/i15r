@@ -1,0 +1,56 @@
+#!/usr/bin/env ruby
+
+$LOAD_PATH.unshift(File.expand_path(File.dirname(__FILE__) + "/../lib"))
+
+require 'i15r'
+require 'i15r/version'
+require 'i15r/file_reader'
+require 'i15r/file_writer'
+require 'i15r/console_printer'
+require 'optparse'
+
+def parse_options(args)
+  options = {}
+  opts = OptionParser.new do |opts|
+    opts.banner = "Usage: ruby i15r.rb [options] <path_to_internationalize>"
+    opts.on("--prefix PREFIX",
+            "Apply PREFIX to generated I18n messages instead of deriving it from the path") do |prefix|
+      options[:prefix] = prefix
+    end
+    opts.on("--prefix_with_path PREFIX",
+            "Apply PREFIX to generated I18n messages in front of the path") do |prefix|
+      options[:prefix_with_path] = prefix
+    end
+    opts.on("-n", "--dry-run", "Do not write the files, just show the diff") do
+      options[:dry_run] = true
+    end
+    opts.on("--no-default", "Do not insert the replaced string as the :default in the I18n string") do
+      options[:add_default] = false
+    end
+    opts.on("--override_i18n_method METHOD", "Replace I18n.t with METHOD") do |m|
+      options[:override_i18n_method] = m
+    end
+    opts.on("--create-locale-file FILE_NAME", "Create a locale file with the given name.") do |m|
+      options[:create_locale_file] = m
+    end
+
+    opts.on_tail("-h", "--help", "Show this message") do
+      puts opts
+      exit
+    end
+
+    opts.on_tail("--version", "Show version") do
+      puts I15R::VERSION
+      exit
+    end
+  end
+
+  opts.parse!(args)
+  options
+end
+
+@i15r = I15R.new(I15R::FileReader.new,
+                 I15R::FileWriter.new,
+                 I15R::ConsolePrinter.new,
+                 parse_options(ARGV))
+@i15r.internationalize!(ARGV[-1])

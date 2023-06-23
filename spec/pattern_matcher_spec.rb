@@ -1,0 +1,311 @@
+# encoding: UTF-8
+require 'spec_helper'
+require 'i15r/pattern_matcher'
+
+describe I15R::PatternMatcher do
+
+  subject { pattern_matcher }
+
+  describe "in erb templates" do
+    let(:pattern_matcher) { I15R::PatternMatcher.new("users.new", :erb) }
+
+    describe "no-markup content" do
+      it { should internationalize("please visit").to('<%= I18n.t("users.new.please_visit") %>') }
+      it { should internationalize("12").to_the_same }
+      it { should internationalize("12 Monkeys").to('<%= I18n.t("users.new.12_monkeys") %>') }
+    end
+
+    describe "in tag content" do
+      it { should internationalize('<h1>New flight</h1>')
+                               .to('<h1><%= I18n.t("users.new.new_flight") %></h1>') }
+      it { should internationalize('<h1>Don\'t worry</h1>')
+                               .to('<h1><%= I18n.t("users.new.dont_worry") %></h1>') }
+      it { should internationalize(%(<label for="user-name">Name</label>))
+                               .to(%(<label for="user-name"><%= I18n.t("users.new.name") %></label>)) }
+
+      it { should internationalize(%(<label for="user-name">First name</label>))
+                               .to(%(<label for="user-name"><%= I18n.t("users.new.first_name") %></label>)) }
+
+      it { should internationalize(%(<label for="user-name">Got friends? A friend's name</label>))
+                               .to(%(<label for="user-name"><%= I18n.t("users.new.got_friends_a_friends_name") %></label>)) }
+
+      it { should internationalize(%(<label for="user-name">A friend's name:</label>))
+                               .to(%(<label for="user-name"><%= I18n.t("users.new.a_friends_name") %></label>)) }
+
+      it { should internationalize(%(<label for="user-name"> Name </label>))
+                               .to(%(<label for="user-name"><%= I18n.t("users.new.name") %></label>)) }
+
+      it { should internationalize(%(<label for="when">Mañana</label>))
+                               .to(%(<label for="when"><%= I18n.t("users.new.mañana") %></label>)) }
+
+      describe "when the default option is given" do
+        let(:pattern_matcher) { I15R::PatternMatcher.new("users.new", :erb, :add_default => true) }
+
+        it { should internationalize('<h1>New flight</h1>')
+                                 .to('<h1><%= I18n.t("users.new.new_flight", :default => "New flight") %></h1>') }
+        it { should internationalize(%(    <%= f.label :name %><br />))
+                                 .to(%(    <%= f.label I18n.t("users.new.name", :default => "name") %><br />)) }
+      end
+
+      describe "when the default option is false" do
+        let(:pattern_matcher) { I15R::PatternMatcher.new("users.new", :erb, :add_default => false) }
+
+        it { should internationalize('<h1>New flight</h1>')
+                                 .to('<h1><%= I18n.t("users.new.new_flight") %></h1>') }
+        it { should internationalize(%(    <%= f.label :name %><br />))
+                                 .to(%(    <%= f.label I18n.t("users.new.name") %><br />)) }
+      end
+
+      describe "when the I18n function is overriden" do
+        let(:pattern_matcher) { I15R::PatternMatcher.new("users.new", :erb, :override_i18n_method => 't') }
+
+        it { should internationalize('<h1>New flight</h1>')
+                                 .to('<h1><%= t("users.new.new_flight") %></h1>') }
+      end
+
+      describe "when a line is already international" do
+        it { should internationalize(%(  <%= f.label I18n.t("users.new.name") %>)).to_the_same }
+        it { should internationalize(%(  <%= f.label t("users.new.name") %>)).to_the_same }
+      end
+
+      describe "when a line contains Ruby variables only" do
+        it { should internationalize(%( <%= hello_world %> )).to_the_same }
+        it { should internationalize(%( <h1><%= hello_world %></h1> )).to_the_same }
+      end
+
+      describe "when a line contains Ruby method calls with options" do
+        it { should internationalize(%( <%= hello_world(:option => true) %> )).to_the_same }
+        it { should internationalize(%( <%= hello_world(option: true) %> )).to_the_same }
+        it { should internationalize(%( <h1><%= hello_world(:option => true) %></h1> )).to_the_same }
+        it { should internationalize(%( <h1><%= hello_world(option: true) %></h1> )).to_the_same }
+      end
+
+      describe "when a line contains Ruby code" do
+        it { should internationalize("variable = value").to_the_same }
+        it { should internationalize("if something").to_the_same }
+        it { should internationalize("if some == value").to_the_same }
+        it { should internationalize("if some && value").to_the_same }
+        it { should internationalize("if some || value").to_the_same }
+        it { should internationalize("unless something").to_the_same }
+        it { should internationalize("unless some == value").to_the_same }
+        it { should internationalize("unless some && value").to_the_same }
+        it { should internationalize("unless some || value").to_the_same }
+        it { should internationalize("something do |val|").to_the_same }
+        it { should internationalize("end").to_the_same }
+        it { should internationalize("something %>").to_the_same }
+        it { should internationalize("key: value,").to_the_same }
+        it { should internationalize(":key => value").to_the_same }
+
+        it { should internationalize("some string,").to('<%= I18n.t("users.new.some_string") %>') }
+        it { should internationalize("some string;").to('<%= I18n.t("users.new.some_string") %>') }
+        it { should internationalize("things i do").to('<%= I18n.t("users.new.things_i_do") %>') }
+        it { should internationalize("if you can").to('<%= I18n.t("users.new.if_you_can") %>') }
+      end
+
+      describe "when a line contains Javascript code" do
+        it { should internationalize("var variable").to_the_same }
+        it { should internationalize("if (interesting) {").to_the_same }
+        it { should internationalize("if (!interesting) {").to_the_same }
+        it { should internationalize("return result;").to_the_same }
+      end
+
+      describe "when a line contains CSS code" do
+        it { should internationalize("overflow: auto;").to_the_same }
+      end
+
+      describe "when a line contains HTML entities" do
+        it { should internationalize("&nbsp;").to_the_same }
+        it { should internationalize("<h1>&nbsp;</h1>").to_the_same }
+        it { should internationalize('<%= link_to "&nbsp; >".html_safe, next_page_path %>').to_the_same }
+      end
+
+      describe "when a line contains a form method calls with options" do
+        it { should internationalize(%( <%= f.email_field :email, :option => true %> )).to_the_same }
+        it { should internationalize(%( <%= f.email_field :email, option: true %> )).to_the_same }
+        it { should internationalize(%( <h1><%= f.email_field :email, :option => true %></h1> )).to_the_same }
+        it { should internationalize(%( <h1><%= f.email_field :email, option: true %></h1> )).to_the_same }
+      end
+    end
+
+    describe "in tag attributes" do
+      it { should internationalize(%(<a title="site root" href="/"><img src="site_logo.png" /></a>))
+                               .to(%(<a title="<%= I18n.t("users.new.site_root") %>" href="/"><img src="site_logo.png" /></a>)) }
+      
+      it { should internationalize(%(<button title="action button"><img src="button.png" /></button>))
+                               .to(%(<button title="<%= I18n.t("users.new.action_button") %>"><img src="button.png" /></button>)) }
+      
+      it { should internationalize(%(<img src="image.jpg" alt="Beautiful image" />))
+                               .to(%(<img src="image.jpg" alt="<%= I18n.t("users.new.beautiful_image") %>" />)) }
+    end
+
+    describe "Rails helper methods" do
+      let(:pattern_matcher) { I15R::PatternMatcher.new("users.index", :erb) }
+
+      it { should internationalize(%(<p class="highlighted"><%= link_to 'New user', new_user_path %>?</p>))
+                               .to(%(<p class="highlighted"><%= link_to I18n.t("users.index.new_user"), new_user_path %>?</p>)) }
+
+      it { should internationalize(%(<p><%= link_to "Create a new user", new_user_path, { :class => "add" } -%></p>))
+                               .to(%(<p><%= link_to I18n.t("users.index.create_a_new_user"), new_user_path, { :class => "add" } -%></p>)) }
+
+      it { should internationalize(%(<%= f.label :name, "Name" %>))
+                               .to(%(<%= f.label :name, I18n.t("users.index.name") %>)) }
+
+      it { should internationalize(%(    <%= f.label :name %><br />))
+                               .to(%(    <%= f.label I18n.t("users.index.name") %><br />)) }
+
+      it { should internationalize(%(    <%= label_tag :name, "Real Name" %><br />))
+                               .to(%(    <%= label_tag :name, I18n.t("users.index.real_name") %><br />)) }
+
+      it { should internationalize(%(<%= f.submit "Create user" %>))
+                               .to(%(<%= f.submit I18n.t("users.index.create_user") %>)) }
+
+      it { should internationalize(%(<%= submit_tag "Create user" %>))
+                               .to(%(<%= submit_tag I18n.t("users.index.create_user") %>)) }
+
+      describe "when the default option is given" do
+        let(:pattern_matcher) { I15R::PatternMatcher.new("users.index", :erb, :add_default => true) }
+
+        it { should internationalize(%(<%= submit_tag "Create user" %>))
+                                 .to(%(<%= submit_tag I18n.t("users.index.create_user", :default => "Create user") %>)) }
+      end
+
+      describe "when the default option is false" do
+        let(:pattern_matcher) { I15R::PatternMatcher.new("users.index", :erb, :add_default => false) }
+
+        it { should internationalize(%(<%= submit_tag "Create user" %>))
+                                 .to(%(<%= submit_tag I18n.t("users.index.create_user") %>)) }
+      end
+
+      describe "when text has non-ascii characters" do
+        it { should internationalize(%(<p class="highlighted"><%= link_to 'Új felhasználó', new_user_path %>?</p>))
+                                 .to(%(<p class="highlighted"><%= link_to I18n.t("users.index.Új_felhasználó"), new_user_path %>?</p>)) }
+
+        it { should internationalize(%(<p><%= link_to "Új felhasználó létrehozása", new_user_path, { :class => "add" } -%></p>))
+                                 .to(%(<p><%= link_to I18n.t("users.index.Új_felhasználó_létrehozása"), new_user_path, { :class => "add" } -%></p>)) }
+
+        it { should internationalize(%(<%= f.label :name, "Név" %>))
+                                 .to(%(<%= f.label :name, I18n.t("users.index.név") %>)) }
+
+        it { should internationalize(%(<%= label_tag :name, "Név" %>))
+                                 .to(%(<%= label_tag :name, I18n.t("users.index.név") %>)) }
+
+        it { should internationalize(%(  <%= label_tag :name, "Real Name" %><br />))
+                                 .to(%(  <%= label_tag :name, I18n.t("users.index.real_name") %><br />)) }
+
+        it { should internationalize(%(<%= f.submit "Új felhasználó" %>))
+                                 .to(%(<%= f.submit I18n.t("users.index.Új_felhasználó") %>)) }
+
+        it { should internationalize(%(<%= submit_tag "Új felhasználó" %>))
+                                 .to(%(<%= submit_tag I18n.t("users.index.Új_felhasználó") %>)) }
+
+        it { should internationalize(%(<%= f.submit :create_user %>))
+                                 .to(%(<%= f.submit I18n.t("users.index.create_user") %>)) }
+
+        it { should internationalize(%(  <%= f.submit :create_user %>))
+                                 .to(%(  <%= f.submit I18n.t("users.index.create_user") %>)) }
+      end
+    end
+  end
+
+  describe "in haml templates" do
+    let(:pattern_matcher) { I15R::PatternMatcher.new("users.show", :haml) }
+
+    describe "no-markup content" do
+      it { should internationalize("please visit").to('= I18n.t("users.show.please_visit")') }
+      it { should internationalize("12").to_the_same }
+      it { should internationalize("12 Monkeys").to('= I18n.t("users.show.12_monkeys")') }
+    end
+
+    it { should internationalize('#main').to_the_same }
+
+    it { should internationalize(%(#form_head My account))
+                             .to(%(#form_head= I18n.t("users.show.my_account"))) }
+
+    it { should internationalize(%(%p Please check your inbox and click on the activation link.))
+                             .to(%(%p= I18n.t("users.show.please_check_your_inbox_and_click_on_the_activation_link"))) }
+
+    it { should internationalize("please visit").to('= I18n.t("users.show.please_visit")') }
+    it { pending "broken"; should internationalize("apples &amp; oranges").to('= I18n.t("users.show.apples_oranges")') }
+    it { should internationalize("Mañana").to('= I18n.t("users.show.mañana")') }
+    it { should internationalize("C'est ça").to('= I18n.t("users.show.cest_ça")') }
+    it { should internationalize(%(%p Do not close/reload while loading))
+                             .to(%(%p= I18n.t("users.show.do_not_close_reload_while_loading"))) }
+    it { should internationalize(%(        .field)).to(%(        .field)) }
+    it { should internationalize('%p').to_the_same }
+    it { pending "broken"; should internationalize('%p #{variable}').to_the_same }
+    it { should internationalize(%(%h2 Resend unlock instructions))
+                             .to(%(%h2= I18n.t("users.show.resend_unlock_instructions"))) }
+    it { should internationalize(%(%i (we need your password to confirm your changes)))
+                             .to(%(%i= I18n.t("users.show.we_need_your_password_to_confirm_your_changes"))) }
+    it { should internationalize('= yield').to_the_same }
+    it { should internationalize('/ Do not remove the next line').to_the_same }
+    it { should internationalize(%(#form_head Türkçe))
+                             .to(%(#form_head= I18n.t("users.show.türkçe"))) }
+    it { should internationalize(%(%p Egy, kettő, három, négy, öt.))
+                             .to(%(%p= I18n.t("users.show.egy_kettő_három_négy_öt"))) }
+    it { should internationalize(%(Türkçe)).to(%(= I18n.t("users.show.türkçe"))) }
+    it { should internationalize(%(  %h3 Top Scorers))
+                             .to(%(  %h3= I18n.t("users.show.top_scorers"))) }
+    it { should internationalize(%(        %div{ :class => "field option", :style => "float:left" })).to_the_same }
+    it { should internationalize(%(        %div{ :class => "field option", :style => "float:left" } Name))
+                             .to(%(        %div{ :class => "field option", :style => "float:left" }= I18n.t("users.show.name"))) }
+    it { should internationalize(%(        %div(class: "field option", style: "float:left") Name))
+                             .to(%(        %div(class: "field option", style: "float:left")= I18n.t("users.show.name"))) }
+
+    describe "when the default option is given" do
+      let(:pattern_matcher) { I15R::PatternMatcher.new("users.show", :haml, :add_default => true) }
+      it { should internationalize(%(  %h3 Top Scorers))
+                               .to(%(  %h3= I18n.t("users.show.top_scorers", :default => "Top Scorers"))) }
+    end
+
+    describe "when the default option is false" do
+      let(:pattern_matcher) { I15R::PatternMatcher.new("users.show", :haml, :add_default => false ) }
+      it { should internationalize(%(  %h3 Top Scorers))
+                               .to(%(  %h3= I18n.t("users.show.top_scorers"))) }
+    end
+
+    describe "when the I18n function is overriden" do
+      let(:pattern_matcher) { I15R::PatternMatcher.new("users.show", :haml, :override_i18n_method => 't', :add_default => true) }
+      it { should internationalize(%(  %h3 Top Scorers))
+                               .to(%(  %h3= t("users.show.top_scorers", :default => "Top Scorers"))) }
+    end
+
+    describe "when already evaluated" do
+      it { should internationalize(%(%p= link_to 'New user', new_user_path))
+                               .to(%(%p= link_to I18n.t("users.show.new_user"), new_user_path)) }
+      it { should internationalize(%(= f.label :password, "Password"))
+                               .to(%(= f.label :password, I18n.t("users.show.password"))) }
+      it { should internationalize(%(    = f.label :password, "Password"))
+                               .to(%(    = f.label :password, I18n.t("users.show.password"))) }
+      it { should internationalize(%(%p= link_to 'Új felhasználó', new_user_path))
+                               .to(%(%p= link_to I18n.t("users.show.Új_felhasználó"), new_user_path)) }
+      it { should internationalize(%(#new_user_link= link_to 'Új felhasználó', new_user_path))
+                               .to(%(#new_user_link= link_to I18n.t("users.show.Új_felhasználó"), new_user_path)) }
+      it { should internationalize(%(= f.label :password, "Contraseña"))
+                               .to(%(= f.label :password, I18n.t("users.show.contraseña"))) }
+      it { should internationalize(%(    = f.label :password, "Contraseña"))
+                               .to(%(    = f.label :password, I18n.t("users.show.contraseña"))) }
+      it { should internationalize(%(    = f.label :name))
+                               .to(%(    = f.label I18n.t("users.show.name"))) }
+
+      it { should internationalize(%(= f.submit "Create user"))
+                               .to(%(= f.submit I18n.t("users.show.create_user"))) }
+      it { should internationalize(%(= submit_tag "Create user"))
+                               .to(%(= submit_tag I18n.t("users.show.create_user"))) }
+      it { should internationalize(%(  = f.submit :user_details %>))
+                               .to(%(  = f.submit I18n.t("users.show.user_details") %>)) }
+      it { should internationalize(%(  = submit_tag :user_details %>))
+                               .to(%(  = submit_tag I18n.t("users.show.user_details") %>)) }
+    end
+
+    describe "evaluated ruby code" do
+      it { should internationalize('- if foo == :bar').to_the_same }
+    end
+
+    describe "when a line is already international" do
+      it { should internationalize(%(  = f.label I18n.t("users.new.name") )).to_the_same }
+      it { should internationalize(%(  = f.label t("users.new.name") )).to_the_same }
+    end
+  end
+
+end
