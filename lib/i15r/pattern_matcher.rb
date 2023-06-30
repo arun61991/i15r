@@ -5,11 +5,15 @@ class I15R
     PATTERNS = {
       :erb => [
         /<%=\s*link_to\s+(?!.*&.*;)(?<title>['"].+?['"])/,
+        /<%=\s*link_to_remote\s+(?!.*&.*;)(?<title>['"].+?['"])/,
         /<%=.*label(_tag)?[^,]+?(?<label-title>(['"].+?['"]|:[[:alnum:]_]+))[^,]+%>.*$/,
         /<%=.*label(_tag)?.*?,\s*(?<label-title>(['"].+?['"]|:[[:alnum:]_]+))/,
         /<%=.*submit(_tag)?\s+(?<submit-text>(['"].+?['"]|:[[:alnum:]_]+))/,
-        />(?<tag-content>(?!&.*;)[[:space:][:alnum:][:punct:]]+?)<\//,
-        /\s+title=['"](?<link-title>.+?)['"]/,
+        /<%\stitle\s['"](?<link-title>.+?)['"]/,
+        /attribute">(?<tag-content>(?!&.*;)[[:space:][:alnum:][:punct:]]+?)<(\/|span)/,
+        /(<h1>|<h2>|<h3>|<h4>|<h5>|<h6>|">|>)(?<tag-content>(?!&.*;)[[:space:][:alnum:][:punct:]]+?)<(\/|span)/,
+        /(">|>)(?<tag-content>(?!&.*;)[[:space:][:alnum:][:punct:]]+?)<(\/|span)/,
+        /<%\s+title=['"](?<link-title>.+?)['"]/,
         /\s+alt=['"](?<img-alt>.+?)['"]/,
         /^\s*(?<pre-tag-text>[[:alnum:]]+[[:alnum:][:space:][:punct:]]*?)</,
         /^(?!^var .*)(?!.*(%>|{|})$)(?!.*(:|=).*(;|,)$)(?!.*return .*;$)(?!.*=)(?!^(if |unless ).*(\=|\&|\|))(?!^(if |unless )\S+$)(?!^end$)(?!.*do.*\|$)\s*(?<no-markup-content>[[:alnum:]]+[[:alnum:][:space:][:punct:]]*)/
@@ -54,7 +58,7 @@ class I15R
                   next unless command_process.to_i == 1
                   new_line = @transformer.transform(m, m[group_name], line, translation_key(m[group_name]))
 
-                  filename = "/home/lenovo/aaa/sample.yml"
+                  filename = "/home/lenovo/plum-dev/config/locales/views/en.yml"
                   yaml_hash = YAML.load_file(filename)
                   require "deep_merge"
                   a = translation_key(m[group_name]).split(".").reverse.inject("#{m[group_name]}") { |a, n| { n => a } }
